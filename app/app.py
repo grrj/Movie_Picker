@@ -1,17 +1,4 @@
 import streamlit as st
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-path_parquet = ROOT / "data" / "imdb_unseen.parquet"
-
-#If the parquet file doesn't exist, run the pipeline to create it
-#if not path_parquet.exists():
-#    from pipeline import rodar_pipeline
-#    with st.spinner("Gerando Base de Dados..."):
-        rodar_pipeline()
-#    st.success("Base de dados gerada com sucesso!")
-#    st.rerun()
-
 from queries import get_unseen_movies, sortear_filme,listar_generos
 
 st.title("Movie Picker 🎬")
