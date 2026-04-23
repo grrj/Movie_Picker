@@ -1,8 +1,14 @@
 import duckdb
 from pathlib import Path
+import streamlit as st
 
 ROOT = Path(__file__).resolve().parent.parent
 path = ROOT / "data" / "imdb_unseen.parquet"
+
+
+st.write(f"PATH: {path}")
+st.write(f"EXISTE: {path.exists()}")
+st.write(f"ARQUIVOS: {list((ROOT / 'data').iterdir())}")
 
 con = duckdb.connect()
 
