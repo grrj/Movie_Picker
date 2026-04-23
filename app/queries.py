@@ -1,14 +1,12 @@
 import duckdb
 from pathlib import Path
 import streamlit as st
+import requests
+
+TMDB_API_KEY = st.secrets["TMDB_API_KEY"]
 
 ROOT = Path(__file__).resolve().parent.parent
 path = ROOT / "data" / "imdb_unseen.parquet"
-
-
-st.write(f"PATH: {path}")
-st.write(f"EXISTE: {path.exists()}")
-st.write(f"ARQUIVOS: {list((ROOT / 'data').iterdir())}")
 
 con = duckdb.connect()
 
@@ -17,6 +15,7 @@ con.execute(f"""
     SELECT * FROM read_parquet('{path}')
 """)
 
+@st.cache_data
 def get_unseen_movies(
     genre = None,
     ano_min = 1900,
@@ -51,7 +50,8 @@ def get_unseen_movies(
         ORDER BY averageRating DESC
         LIMIT {limite}
     """).fetchdf()
-
+    
+@st.cache_data
 def sortear_filme(genero=None, nota_min=7.0, votos_min=10000):
     filtros = [
         f"averageRating >= {nota_min}",
@@ -86,3 +86,35 @@ def listar_generos():
         )
         ORDER BY genre
     """).fetchdf()
+
+@st.cache_data
+def get_movie_info(titulo, ano):
+    url = "https://api.themoviedb.org/3/search/movie"
+    params = {
+        "api_key": TMDB_API_KEY,
+        "query": titulo,
+        "year": ano,
+        "language": "pt-BR"
+    }
+
+    try:
+        res = requests.get(url, params=params).json()
+        
+       
+        if "results" in res and len(res["results"]) > 0:
+            
+            
+            movie = res["results"][0]
+            
+            poster_path = movie.get('poster_path')
+            poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else "https://via.placeholder.com/500x750?text=Sem+Poster"
+            
+            overview = movie.get('overview', "Sem descrição disponível.")
+            return poster_url, overview
+        
+    except Exception as e:
+        
+        st.error(f"Erro ao ligar à API: {e}")
+
+    
+    return "https://via.placeholder.com/500x750?text=Sem+Poster", "Sinopse não encontrada."
