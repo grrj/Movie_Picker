@@ -121,7 +121,7 @@ Formato padrão de mercado para dados analíticos — compacto, tipado e lido na
 ## Próximos passos
 
 - [✅] Enriquecer com posters e sinopses via TMDB API
-- [ ] Incluir filtro por filmes da `watchlist.csv`
+- [✅ ] Incluir filtro por filmes da `watchlist.csv`
 - [ ] Migrar para API FastAPI + frontend React
 
 ---
