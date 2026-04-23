@@ -2,7 +2,7 @@
 
 App de recomendação de filmes baseado no seu histórico pessoal do Letterboxd, cruzado com o dataset público do IMDB.
 
-> Acesse o app: [seu-usuario-movie-picker.streamlit.app](https://seu-usuario-movie-picker.streamlit.app)
+> Acesse o app: (https://moviepicker-kmsk8cypjzlgqgr5vxamjw.streamlit.app/)
 
 ---
 
