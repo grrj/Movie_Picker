@@ -123,15 +123,15 @@ def get_movie_info(titulo, ano):
 
 @st.cache_data(ttl=3600)
 def user_recommendations():
-    result = con.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'user_profile'").fetchone()
-    if result[0] == 0:
-        con.execute(f"""
-            CREATE TABLE user_profile AS 
-            SELECT * FROM read_parquet('{path_user}')
-        """)
     query = """
     SELECT
-        i.*,
+        i.primaryTitle,
+        i.originalTitle,
+        i.startYear,
+        i.genres,
+        i.runtimeMinutes,
+        i.averageRating,
+        i.numVotes,
         (
             CASE
                 WHEN i.genres LIKE '%' || trim(split_part(p.top_genres, ',', 1)) || '%' THEN 5
@@ -139,30 +139,28 @@ def user_recommendations():
                 WHEN i.genres LIKE '%' || trim(split_part(p.top_genres, ',', 3)) || '%' THEN 2
                 ELSE 0
             END +
-
             CASE
-                WHEN (TRY_CAST(i.startYEAR AS INTEGER)/10)*10 = P.top_decade THEN 3
+                WHEN (i.startYear/10)*10 = p.top_decade THEN 3
                 ELSE 0
             END +
-
             CASE
-                WHEN ABS(i.runtimeMinutes - P.avg_runtime) <= 20 THEN 2
+                WHEN ABS(i.runtimeMinutes - p.avg_runtime) <= 20 THEN 2
                 ELSE 0
             END
         ) AS recommendation_score
-    FROM imdb_unseen i,user_profile p
+    FROM imdb_unseen i, user_profile p
     WHERE i.averageRating >= 7.0
         AND i.numVotes >= 10000
         AND i.startYear IS NOT NULL
         AND i.runtimeMinutes IS NOT NULL
     ORDER BY recommendation_score DESC, i.averageRating DESC
-    LIMIT 50;
+    LIMIT 50
     """
     try:
         con.execute(f"""
-        CREATE TABLE IF NOT EXISTS user_profile AS 
-        SELECT * FROM read_parquet('{path_user}')
-    """)
+            CREATE TABLE IF NOT EXISTS user_profile AS 
+            SELECT * FROM read_parquet('{path_user}')
+        """)
         result = con.execute(query).fetchdf()
         return result
     except Exception as e:
