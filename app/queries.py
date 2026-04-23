@@ -7,6 +7,7 @@ TMDB_API_KEY = st.secrets["TMDB_API_KEY"]
 
 ROOT = Path(__file__).resolve().parent.parent
 path = ROOT / "data" / "imdb_unseen.parquet"
+path_user = ROOT / "data" / "user_profile.parquet"
 
 con = duckdb.connect()
 
@@ -23,8 +24,8 @@ def get_unseen_movies(
     duracao_min = 60,
     duracao_max = 240,
     nota_min = 0,
-    votos_min = 0,
-    limite = 10
+    limite = 10,
+    votos_min = 10000
 ):
     filtros = [
         f"startYear BETWEEN {ano_min} AND {ano_max}",
@@ -52,7 +53,7 @@ def get_unseen_movies(
     """).fetchdf()
     
 @st.cache_data
-def sortear_filme(genero=None, nota_min=7.0, votos_min=10000):
+def sortear_filme(genero=None, nota_min=7.0,votos_min=10000):
     filtros = [
         f"averageRating >= {nota_min}",
         f"numVotes >= {votos_min}"
@@ -76,6 +77,7 @@ def sortear_filme(genero=None, nota_min=7.0, votos_min=10000):
         LIMIT 1
     """).fetchdf()
 
+@st.cache_data
 def listar_generos():
     return con.execute("""
         SELECT DISTINCT TRIM(genre) AS genre
@@ -118,3 +120,51 @@ def get_movie_info(titulo, ano):
 
     
     return "https://via.placeholder.com/500x750?text=Sem+Poster", "Sinopse não encontrada."
+
+@st.cache_data(ttl=3600)
+def user_recommendations():
+    result = con.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'user_profile'").fetchone()
+    if result[0] == 0:
+        con.execute(f"""
+            CREATE TABLE user_profile AS 
+            SELECT * FROM read_parquet('{path_user}')
+        """)
+    query = """
+    SELECT
+        i.*,
+        (
+            CASE
+                WHEN i.genres LIKE '%' || trim(split_part(p.top_genres, ',', 1)) || '%' THEN 5
+                WHEN i.genres LIKE '%' || trim(split_part(p.top_genres, ',', 2)) || '%' THEN 3
+                WHEN i.genres LIKE '%' || trim(split_part(p.top_genres, ',', 3)) || '%' THEN 2
+                ELSE 0
+            END +
+
+            CASE
+                WHEN (TRY_CAST(i.startYEAR AS INTEGER)/10)*10 = P.top_decade THEN 3
+                ELSE 0
+            END +
+
+            CASE
+                WHEN ABS(i.runtimeMinutes - P.avg_runtime) <= 20 THEN 2
+                ELSE 0
+            END
+        ) AS recommendation_score
+    FROM imdb_unseen i,user_profile p
+    WHERE i.averageRating >= 7.0
+        AND i.numVotes >= 10000
+        AND i.startYear IS NOT NULL
+        AND i.runtimeMinutes IS NOT NULL
+    ORDER BY recommendation_score DESC, i.averageRating DESC
+    LIMIT 50;
+    """
+    try:
+        con.execute(f"""
+        CREATE TABLE IF NOT EXISTS user_profile AS 
+        SELECT * FROM read_parquet('{path_user}')
+    """)
+        result = con.execute(query).fetchdf()
+        return result
+    except Exception as e:
+        st.error(f"Erro ao gerar recomendações: {e}")
+        return con.execute("SELECT * FROM imdb_unseen LIMIT 0").fetchdf()
